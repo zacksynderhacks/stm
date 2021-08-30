@@ -1,0 +1,839 @@
+//2 server
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
+
+
+void func(int sockfd){
+    char buff[MAX];
+    int i;
+    for (;;){
+        bzero(buff, MAX);
+        read(sockfd, buff, sizeof(buff));
+        printf("Form client: %s\nTo client: ", buff);
+        bzero(buff, MAX);
+        i = 0;
+        while ((buff[i++] = getchar())!='\n');
+        write(sockfd, buff, sizeof(buff));
+        if(strncmp("exit", buff, 4) == 0){
+            printf("Server Exit...\n");
+            break;
+        }
+    }
+}
+
+int main(){
+    int sockfd, connfd;
+    struct sockaddr_in serv, cli;
+    
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 ){
+        printf("socket failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv.sin_port = htons(PORT);
+    
+    if (bind(sockfd, (SA*)&serv, sizeof(serv)) != 0){
+        printf("socket bind failed...\n");
+        exit(0);
+    }
+    
+    if (listen(sockfd, 5) != 0){
+        printf("listen failed...\n");
+        exit(0);
+    }
+    
+    int len = sizeof(cli);
+    
+    if ((connfd = accept(sockfd, (SA*)&cli, &cli)) < 0){
+        printf("server accept failed...\n");
+        exit(0);
+    }
+    
+    func(connfd);
+    close(sockfd);
+}
+
+
+
+
+
+
+//2client
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
+
+
+void func(int sockfd){
+    char buff[MAX];
+    int i;
+    for (;;){
+        printf("To Server: ");
+        bzero(buff, sizeof(buff));
+        i = 0;
+        while ((buff[i++] = getchar())!='\n');
+        write(sockfd, buff, sizeof(buff));
+        bzero(buff, sizeof(buff));
+        read(sockfd, buff, sizeof(buff));
+        printf("Form Server: %s\n", buff);
+        if(strncmp("exit", buff, 4) == 0){
+            printf("Server Exit...\n");
+            break;
+        }
+    }
+}
+
+int main(){
+    int sockfd;
+    struct sockaddr_in serv, cli;
+    
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+        printf("socket failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = htonl(INADDR_ANY); //inet_addr("121.0.0.1")
+    serv.sin_port = htons(PORT);
+    
+    if (connect(sockfd, (SA*)&serv, sizeof(serv)) != 0){
+        printf("socket bind failed...\n");
+        exit(0);
+    }
+    
+    func(sockfd);
+    close(sockfd);
+}
+
+
+
+
+
+
+
+
+
+//3 server
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 1024
+#define PORT 8080
+#define SA struct sockaddr
+
+
+int main(){
+    int sockfd;
+    struct sockaddr_in serv, cli;
+    char buffer[MAX];
+    char *hello = "Hello from server";
+    
+    if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1 ){
+        printf("socket creation failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    bzero(&cli, sizeof(cli));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = INADDR_ANY;
+    serv.sin_port = htons(PORT);
+    
+    if (bind(sockfd, (SA*)&serv, sizeof(serv)) != 0){
+        printf("socket bind failed...\n");
+        exit(0);
+    }
+    
+    int n, len = sizeof(cli);
+    
+    n = recvfrom(sockfd, (char *) buffer, sizeof(buffer), MSG_WAITALL, (SA*) &cli, &len);
+    buffer[n] = '\0';
+    printf("Client: %s\n", buffer);
+    sendto(sockfd, (char *) hello, strlen(hello), MSG_CONFIRM, (SA*)&cli, len);
+    
+    close(sockfd);
+}
+
+
+
+
+
+//3client
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 1024
+#define PORT 8080
+#define SA struct sockaddr
+
+
+int main(){
+    int sockfd;
+    struct sockaddr_in serv;
+    char buffer[MAX];
+    char *hello = "Hello from client";
+    
+    if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ){
+        printf("socket creation failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = INADDR_ANY;
+    serv.sin_port = htons(PORT);
+    
+    int n, len = sizeof(serv);
+    sendto(sockfd, (char *) hello, strlen(hello), MSG_CONFIRM, (SA*)&serv, len);
+    
+    n = recvfrom(sockfd, (char *) buffer, sizeof(buffer), MSG_WAITALL, (SA*) &serv, &len);
+    buffer[n] = '\0';
+    printf("Server: %s\n", buffer);
+    
+    close(sockfd);
+}
+
+
+
+
+
+
+
+//4 server
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 1024
+#define PORT 8080
+#define SA struct sockaddr
+
+int max(int x, int y)
+{
+    if (x > y)
+        return x;
+    else
+        return y;
+}
+
+int main(){
+    int tcpfd, udpfd, connfd, maxfd;
+    struct sockaddr_in serv, cli;
+    char buffer[MAX];
+    char *hello = "Hello from server";
+    
+    if((tcpfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 ){
+        printf("tcp socket creation failed\n");
+        exit(0);
+    }
+    if((udpfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1 ){
+        printf("udp socket creation failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    bzero(&cli, sizeof(cli));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv.sin_port = htons(PORT);
+    
+    if (bind(tcpfd, (SA*)&serv, sizeof(serv)) != 0){
+        printf("socket bind failed...\n");
+        exit(0);
+    }
+    listen(tcpfd, 10);
+    if (bind(udpfd, (SA*)&serv, sizeof(serv)) != 0){
+        printf("socket bind failed...\n");
+        exit(0);
+    }
+    
+    fd_set rset;
+    FD_ZERO(&rset);
+    maxfd = max(tcpfd, udpfd)+1;
+    
+    for(;;){
+        FD_SET(tcpfd, &rset);
+        FD_SET(udpfd, &rset);
+        select(maxfd, &rset, NULL, NULL, NULL);
+        if (FD_ISSET(tcpfd, &rset)){
+            int len = sizeof(cli);
+            connfd = accept(tcpfd, (SA*)&cli, &len);
+            if(fork()==0){
+                close(tcpfd);
+                bzero(buffer, sizeof(buffer));
+                read(connfd, buffer, sizeof(buffer));
+                puts(buffer);
+                write(connfd, (char *)hello, strlen(hello));
+                close(connfd);
+                exit(0);
+            }
+            close(connfd);
+        }
+        if(FD_ISSET(udpfd, &rset)){
+            int len = sizeof(cli);
+            bzero(buffer, sizeof(buffer));
+            recvfrom(udpfd, buffer, sizeof(buffer), 0, (SA*)&cli, &len);
+            puts(buffer);
+            sendto(udpfd, (char*)hello, strlen(hello), 0, (SA*)&cli, len);
+            exit(0);
+        }
+    }
+}
+
+
+
+
+
+
+
+//4 client1
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 1024
+#define PORT 8080
+#define SA struct sockaddr
+
+
+int main(){
+    int sockfd;
+    struct sockaddr_in serv;
+    char buffer[MAX];
+    char *hello = "Hello from TCP client";
+    
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ){
+        printf("socket creation failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv.sin_port = htons(PORT);
+    
+    if (connect(sockfd, (SA*)&serv, sizeof(serv))<0){
+        printf("connection failed\n");
+        exit(0);
+    }
+    
+    bzero(buffer, sizeof(buffer));
+    write(sockfd, (char*)hello, strlen(hello));
+    read(sockfd, buffer, sizeof(buffer));
+    puts(buffer);
+    
+    close(sockfd);
+}
+
+
+
+
+
+
+//4client2
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#define MAX 1024
+#define PORT 8080
+#define SA struct sockaddr
+
+
+int main(){
+    int sockfd;
+    struct sockaddr_in serv;
+    char buffer[MAX];
+    char *hello = "Hello from UDP client";
+    
+    if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ){
+        printf("socket creation failed\n");
+        exit(0);
+    }
+    bzero(&serv, sizeof(serv));
+    
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv.sin_port = htons(PORT);
+    
+    int n, len = sizeof(serv);
+    sendto(sockfd, (char *) hello, strlen(hello), MSG_CONFIRM, (SA*)&serv, len);
+    
+    n = recvfrom(sockfd, (char *) buffer, sizeof(buffer), MSG_WAITALL, (SA*) &serv, &len);
+    buffer[n] = '\0';
+    printf("Server: %s\n", buffer);
+    
+    close(sockfd);
+}
+
+
+
+
+
+//5
+#include<stdio.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<string.h>
+#include<netinet/in.h>
+#include<netinet/tcp.h>
+void main()
+{
+       int sockfd,maxseg,sendbuff,optlen;
+       sockfd=socket(AF_INET,SOCK_STREAM,0);
+       optlen=sizeof(maxseg);
+	if(getsockopt(sockfd,IPPROTO_TCP,TCP_MAXSEG,(char*)&maxseg,&optlen)<0)
+                 printf("Max seg error");
+       else
+                 printf("TCP max seg=%d\n",maxseg);
+       sendbuff=2500;
+	if(setsockopt(sockfd,SOL_SOCKET,SO_SNDBUF,(char*)&sendbuff,sizeof(sendbuff))<0)
+                 printf("set error");
+        optlen=sizeof(sendbuff);
+        getsockopt(sockfd,SOL_SOCKET,SO_SNDBUF,(char *)&sendbuff,&optlen);
+        printf("send buff size=%d\n",sendbuff);
+  }
+  
+  
+  
+  
+  
+  
+
+//6 server
+// Server program
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#define PORT 5000
+#define MAXLINE 1024
+int main(int argc,char *argv[])
+{
+    int s,s2,t,len;
+    struct sockaddr_in local,rem;
+    char str[100];
+    s=socket(AF_INET,SOCK_STREAM,0);
+    if(s==-1)
+    {
+        perror("socket");
+        exit(1);
+    }
+    bzero((char *)&local,sizeof(local));
+    local.sin_family=AF_INET;
+    local.sin_port=htons(atoi(argv[1]));
+    local.sin_addr.s_addr=htonl(INADDR_ANY);
+    if(bind(s,(struct sockaddr *)&local,sizeof(local))==-1)
+    {
+        perror("bind");
+        exit(1);
+    }
+    if(listen(s,5)==-1)
+    {
+        perror("listen");
+        exit(1);
+    }
+    for(;;)
+    {
+        int done,n;
+        printf("waiting for a connection……\n");
+        t=sizeof(rem);
+        s2=accept(s,(struct sockaddr *)&rem,&t);
+        if(s2==-1)
+        {
+            perror("accept");
+            exit(1);
+        }
+    }
+    close(s2);
+    return 0;
+}
+
+
+
+
+
+
+//6client
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#define ERROR -1
+main()
+{
+        int s,k;
+        struct sockaddr_in server,addr;
+        socklen_t len;
+        s=socket(AF_INET,SOCK_STREAM,0);
+        server.sin_family=AF_INET;
+        inet_aton("127.0.0.1",&server.sin_addr);
+        server.sin_port=htons(1992);
+        k=connect(s,(struct sockaddr*)&server,sizeof(server));
+        if(k<0)
+        {
+                perror("connected");
+                exit(0);
+        }
+        len=sizeof(addr);
+        getpeername(s,(struct sockaddr*)&addr,&len);
+        printf("Peer IP Address:%s\n",inet_ntoa(addr.sin_addr));
+        printf("Peer Port:%d\n",ntohs(addr.sin_port)); 
+}
+
+
+
+
+
+
+
+
+
+//7server
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+#include<netinet/in.h>
+#include<arpa/inet.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<errno.h>
+int main()
+{
+        int sd,acpt,len,bytes,port;
+        char send[50],receiv[50];
+        struct sockaddr_in serv,cli;
+        if((sd=socket(AF_INET,SOCK_STREAM,0))<0)
+        {
+                printf("Error in socket\n");
+                exit(0);
+        }
+        bzero(&serv,sizeof(serv));
+        printf("Enter the port number  :  ");
+        scanf("%d",&port);
+        serv.sin_family=AF_INET;
+        serv.sin_port=htons(port);
+        serv.sin_addr.s_addr=htonl(INADDR_ANY);
+        if(bind(sd,(struct sockaddr *)&serv,sizeof(serv))<0)
+        {
+                printf("Error in bind\n");
+                exit(0);
+        }
+        if(listen(sd,3)<0)
+        {
+                printf("Error in listen\n");
+                exit(0);
+        }
+        if((acpt=accept(sd,(struct sockaddr*)NULL,NULL))<0)
+        {
+                printf("\n\t Error in accept");
+                exit(0);
+        }
+        while(1)
+        {
+                bytes=recv(acpt,receiv,50,0);
+                receiv[bytes]='\0';
+                if(strcmp(receiv ,"end")==0)
+                {
+                        close(acpt);
+                        close(sd);
+                        exit(0);
+                }
+                else
+                {
+                        printf("Command received : %s",receiv);
+                        system(receiv);
+                        printf("\n");
+                }
+        }
+}
+
+
+
+
+
+//7client
+ #include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+#include<netinet/in.h>
+#include<arpa/inet.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<errno.h>
+int main()
+{
+        int sd,acpt,len,bytes,port;
+        char send1[50],receiv[50];
+        struct sockaddr_in serv,cli;
+        if((sd=socket(AF_INET,SOCK_STREAM,0))<0)
+        {
+                printf("Error in socket\n");
+                exit(0);
+        }
+        bzero(&serv,sizeof(serv));
+        printf("Enter the port number  :  ");
+        scanf("%d",&port);
+        serv.sin_family=AF_INET;
+        serv.sin_port=htons(port);
+        serv.sin_addr.s_addr=htonl(INADDR_ANY);
+        if(connect(sd,(struct sockaddr *)&serv,sizeof(serv))<0)
+        {
+                printf("Error in connection\n");
+                exit(0);
+        }
+
+        while(1)
+        {
+                printf("Enter the command:");
+                gets(send1);
+                if(strcmp(send1,"end")!=0)
+                {
+                        send(sd,send1,50,0);
+                }
+                else
+                {
+                        send(sd,send1,50,0);
+                        close(sd);
+                        break;
+                }
+        }
+}
+
+
+
+
+
+
+
+
+//8server
+import java.io.*;
+public class DVR 
+{
+   static int graph[][];
+   static int via[][];
+   static int rt[][];
+   static int v;
+   static int e;
+   public static void main(String args[]) throws IOException
+   {
+      BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+      System.out.println("Please enter the number of Vertices: ");
+      v = Integer.parseInt(br.readLine());
+  
+     System.out.println("Please enter the number of Edges: ");
+     e = Integer.parseInt(br.readLine());
+     graph = new int[v][v];
+     via = new int[v][v];
+     rt = new int[v][v];
+     for(int i = 0; i < v; i++)
+       for(int j = 0; j < v; j++)
+       {
+           if(i == j)
+              graph[i][j] = 0;
+           else
+              graph[i][j] = 9999;
+       }
+    for(int i = 0; i < e; i++)
+    {
+        System.out.println("Please enter data for Edge " + (i + 1) + ":");
+        System.out.print("Source: ");
+        int s = Integer.parseInt(br.readLine());
+        s--;
+        System.out.print("Destination: ");
+        int d = Integer.parseInt(br.readLine());
+        d--;
+        System.out.print("Cost: ");
+        int c = Integer.parseInt(br.readLine());
+        graph[s][d] = c;
+        graph[d][s] = c;
+    }
+    dvr_calc_disp("The initial Routing Tables are: ");
+    System.out.print("Please enter the Source Node for the edge whose cost has changed: ");
+    int s = Integer.parseInt(br.readLine());
+    s--;
+    System.out.print("Please enter the Destination Node for the edge whose cost has changed: ");
+    int d = Integer.parseInt(br.readLine());
+    d--;
+    System.out.print("Please enter the new cost: ");
+    int c = Integer.parseInt(br.readLine());
+    graph[s][d] = c;
+    graph[d][s] = c;
+    dvr_calc_disp("The new Routing Tables are: ");
+ }
+ static void dvr_calc_disp(String message)
+ {
+    System.out.println();
+    init_tables();
+    update_tables();
+    System.out.println(message);
+    print_tables();
+    System.out.println();
+ }
+ static void update_table(int source)
+ {
+    for(int i = 0; i < v; i++)
+    {
+       if(graph[source][i] != 9999)
+       {
+          int dist = graph[source][i];
+          for(int j = 0; j < v; j++)
+          {
+             int inter_dist = rt[i][j];
+             if(via[i][j] == source)
+              inter_dist = 9999;
+             if(dist + inter_dist < rt[source][j])
+             {
+              rt[source][j] = dist + inter_dist;
+              via[source][j] = i;
+             }
+          }
+       }
+   }
+ }
+ 
+ static void update_tables()
+ {
+  int k = 0;
+  for(int i = 0; i < 4*v; i++)
+  {
+   update_table(k);
+   k++;
+   if(k == v)
+    k = 0;
+  }
+ }
+ 
+ static void init_tables()
+ {
+  for(int i = 0; i < v; i++)
+  {
+   for(int j = 0; j < v; j++)
+   {
+    if(i == j)
+    {
+     rt[i][j] = 0;
+     via[i][j] = i;
+    }
+    else
+    {
+     rt[i][j] = 9999;
+     via[i][j] = 100;
+    }
+   }
+  }
+ }
+ 
+ static void print_tables()
+ {
+  for(int i = 0; i < v; i++)
+  {
+   for(int j = 0; j < v; j++)
+   {
+    System.out.print("Dist: " + rt[i][j] + "    ");
+   }
+   System.out.println();
+  }
+ }
+ 
+}
+
+
+
+
+
+
+
+
+//10server
+import java.io.*;
+import java.net.*;
+
+public class FileServer{
+    public static void main(String[] args) throws Exception{
+        ServerSocket s = new ServerSocket(13257);
+        Socket socket = s.accept();
+        FileInputStream fr = new FileInputStream("");
+        byte b[] = new byte[2002];
+        fr.read(b, 0, b.length);
+        OutputStream os = socket.getOutputStream();
+        os.write(b, 0, b.length);
+    }
+}
+
+
+
+
+//10client
+import java.io.*;
+import java.net.*;
+
+public class FileClient{
+        public static void main(String args[]) throws Exception{
+            Socket socket = new Socket("127.0.0.1", 13257);
+            FileOutputStream fr = new FileOutputStream("");
+            byte b[] = new byte[2002];
+            InputStream is = socket.getInputStream();
+            is.read(b, 0, b.length);
+            fr.write(b, 0, b.length);
+        }
+}
